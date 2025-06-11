@@ -1,0 +1,63 @@
+# Utilise la version 3.8 de la syntaxe Docker Compose
+version: "3.8"
+
+# Définition des services (conteneurs) qui seront créés
+services:
+
+  # Service pour la base de données MariaDB
+  db:
+    # Construit l'image à partir du Dockerfile présent dans le dossier ./repository
+    build: ./repository
+
+    # Crée un volume nommé db_data et le monte dans le dossier où MariaDB stocke les données
+    volumes:
+      - db_data:/var/lib/mysql
+
+    # Variables d’environnement utilisées par l’image officielle MariaDB pour l’initialisation
+    environment:
+        MYSQL_ROOT_PASSWORD: 266139                 # Mot de passe pour l'utilisateur root
+        MYSQL_ALLOW_EMPTY_PASSWORD: "yes"           # Autorise les mots de passe vides (à éviter en prod)
+        MYSQL_USER: root                            # Utilisateur par défaut (déjà root par défaut, donc redondant ici)
+        MYSQL_PASSWORD: 266139                      # Mot de passe pour l'utilisateur (root ici)
+        MYSQL_DATABASE: annuaire_student            # Nom de la base de données à créer automatiquement
+
+    # Connecte ce service à un réseau personnalisé nommé my_network
+    networks:
+      - my_network
+
+    # Redirige le port 3306 (port MariaDB interne) vers le port 3315 de l'hôte
+    ports:
+      - "3315:3306"
+
+  # Service pour l’application Flask
+  app:
+    # Construit l’image à partir du Dockerfile présent dans le dossier courant
+    build: .
+
+    # Connecte ce service au même réseau que la base de données
+    networks:
+      - my_network
+
+    # Redirige le port 5000 (interne du conteneur Flask) vers le port 5000 de l'hôte
+    ports:
+      - '5000:5000'
+
+    # Monte un volume nommé "data" dans le dossier instance/ pour stocker les fichiers persistants (ex : DB SQLite locale)
+    volumes:
+      - data:/annuaire_student/instance
+
+    # Spécifie que ce service dépend du service "db" (démarrera après la base de données)
+    depends_on:
+      - db
+
+# Déclaration des volumes persistants utilisés dans les services
+volumes:
+  data:     # Volume pour l'application Flask (ex: fichiers instance)
+  db_data:  # Volume pour les données de la base MariaDB
+
+# Définition du réseau personnalisé utilisé par les services
+networks:
+  my_network:
+    driver: bridge  # Utilise un réseau en pont (bridge)
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: '127.0.0.1'  # Limite les connexions au localhost
